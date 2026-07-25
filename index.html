@@ -241,20 +241,15 @@
   .warning-text .w-title {
     font-weight: 700;
   }
-  .warning-text .w-level {
-    font-size: 0.75rem;
-    opacity: 0.85;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
   .warning-banner.level-yellow { background: rgba(255, 209, 102, 0.18); border-color: rgba(255, 209, 102, 0.5); }
   .warning-banner.level-orange { background: rgba(255, 149, 0, 0.2); border-color: rgba(255, 149, 0, 0.55); }
   .warning-banner.level-red { background: rgba(255, 59, 48, 0.22); border-color: rgba(255, 59, 48, 0.6); }
   .warning-banner.level-message { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+  .footer-note {
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--muted);
-    opacity: 0.7;
+    opacity: 0.5;
     margin-top: -6px;
   }
 </style>
@@ -347,7 +342,6 @@ async function loadWarnings() {
         <div class="warning-item">
           <span class="warning-icon">${info.icon}</span>
           <div class="warning-text">
-            <div class="w-level">${item.levelText}${item.areaName ? ' · ' + item.areaName : ''}</div>
             <div class="w-title">${item.title}</div>
           </div>
         </div>`;
