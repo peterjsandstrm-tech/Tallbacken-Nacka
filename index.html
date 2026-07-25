@@ -15,26 +15,45 @@
     --accent: #ffd166;
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: linear-gradient(160deg, var(--bg1), var(--bg2) 60%, #12203f);
+    background-attachment: fixed;
     color: var(--text);
     display: flex;
     justify-content: center;
-    padding: 32px 16px;
+    padding: clamp(16px, 4vw, 40px) 16px;
   }
   .wrap {
     width: 100%;
     max-width: 520px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: clamp(16px, 2.5vw, 24px);
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px 22px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+
+  /* Bredare vyer (surfplatta liggande, dator): ge mer andrum utan att tappa den kompakta känslan */
+  @media (min-width: 700px) {
+    .wrap { max-width: 640px; gap: 26px; }
+    .card { padding: 26px 28px; border-radius: 22px; }
+  }
+  @media (min-width: 1100px) {
+    .wrap { max-width: 720px; }
   }
   h1 {
     text-align: center;
-    font-size: 1.1rem;
+    font-size: clamp(1rem, 2.2vw, 1.3rem);
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -64,9 +83,9 @@
     justify-content: center;
   }
   .clock {
-    font-size: 3rem;
+    font-size: clamp(1.8rem, 8vw, 4rem);
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
   }
   .date {
@@ -74,13 +93,6 @@
     color: var(--muted);
     font-size: 0.95rem;
     text-transform: capitalize;
-  }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: 18px;
-    padding: 20px 22px;
-    backdrop-filter: blur(6px);
   }
   .card-title {
     display: flex;
@@ -98,11 +110,11 @@
     gap: 6px;
   }
   .temp-icon {
-    font-size: 2rem;
+    font-size: clamp(1.6rem, 5.5vw, 2.6rem);
     line-height: 1;
   }
   .temp {
-    font-size: 2.4rem;
+    font-size: clamp(1.9rem, 6.5vw, 3.2rem);
     font-weight: 700;
   }
   .forecast-row {
