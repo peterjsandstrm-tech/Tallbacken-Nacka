@@ -143,7 +143,17 @@
     font-size: 0.78rem;
     color: var(--muted);
   }
+  .bathing-report-detail {
+    font-size: 0.66rem;
+    line-height: 1.35;
+    color: var(--muted);
+    text-align: left;
+    margin: 2px 0 4px;
+  }
   .bathing-status-badge {
+    display: inline-block;
+    min-width: 82px;
+    text-align: center;
     font-weight: 700;
     padding: 1px 8px;
     border-radius: 8px;
@@ -154,6 +164,10 @@
   .bathing-eu {
     font-size: 0.72rem;
     color: var(--muted);
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--card-border);
+    width: 100%;
   }
   .card-title {
     display: flex;
@@ -633,13 +647,23 @@ async function loadBathingWater() {
     tempEl.textContent = latest ? `${latest.waterTemp}°` : '–°';
 
     if (results.length > 0) {
-      reportsEl.innerHTML = results.slice(0, 2).map(r => {
+      reportsEl.innerHTML = results.slice(0, 2).map((r, i) => {
         const dateStr = new Date(r.takenAt).toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' });
+        const detailHtml = (i === 0 && r.sampleAssessId === 3)
+          ? `
+            <div class="bathing-report-detail">
+              <div>E. coli: ${r.escherichiaColiPrefix || ''}${r.escherichiaColiCount} (gräns för Otjänligt: &gt;1000 CFU/100ml)</div>
+              <div>Tarmenterokocker: ${r.intestinalEnterococciPrefix || ''}${r.intestinalEnterococciCount} (gräns: &gt;400 CFU/100ml)</div>
+              <div>Algblomning: ${r.algalIdText}</div>
+              ${r.weatherIdText ? `<div>Väder vid provtagning: ${r.weatherIdText}</div>` : ''}
+            </div>`
+          : '';
         return `
           <div class="bathing-report-row">
             <span class="bathing-status-badge ${bathingStatusClass(r.sampleAssessId)}">${r.sampleAssessIdText}</span>
             <span>${dateStr}</span>
-          </div>`;
+          </div>
+          ${detailHtml}`;
       }).join('');
     } else {
       reportsEl.textContent = 'Inga provresultat tillgängliga';
@@ -654,7 +678,7 @@ async function loadBathingWater() {
   }
 }
 loadBathingWater();
-setInterval(loadBathingWater, 30 * 60 * 1000); // provresultat och klassificering ändras sällan
+setInterval(loadBathingWater, 12 * 60 * 60 * 1000); // provresultat tas normalt högst en gång per dag, ingen live-temperatur
 
 // ---------- Robust fetch: försök direkt, falla tillbaka på CORS-proxy ----------
 // Om sidan öppnas som en lokal fil (file://) skickar webbläsaren "Origin: null",
