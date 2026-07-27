@@ -579,7 +579,14 @@ const STOPS = [
 ].sort((a, b) => a.name.localeCompare(b.name, 'sv'));
 
 const DEFAULT_STOP_ID = 4632; // Tallbacken (Nacka)
-let selectedStopId = DEFAULT_STOP_ID;
+const STOP_STORAGE_KEY = 'kiosk-sickla-stop-id';
+
+function loadSavedStopId() {
+  const saved = Number(localStorage.getItem(STOP_STORAGE_KEY));
+  return STOPS.some(s => s.id === saved) ? saved : DEFAULT_STOP_ID;
+}
+
+let selectedStopId = loadSavedStopId();
 
 function populateStopSelect() {
   const select = document.getElementById('stopSelect');
@@ -587,6 +594,7 @@ function populateStopSelect() {
   select.value = String(selectedStopId);
   select.addEventListener('change', () => {
     selectedStopId = Number(select.value);
+    localStorage.setItem(STOP_STORAGE_KEY, String(selectedStopId));
     loadBuses();
   });
 }
