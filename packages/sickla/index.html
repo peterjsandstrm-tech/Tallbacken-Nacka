@@ -95,10 +95,65 @@
   .clock-card {
     flex: 1;
     text-align: center;
-    padding: 28px 20px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
+    align-items: center;
+  }
+  .bathing-title {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .bathing-middle {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    gap: 6px;
+  }
+  .bathing-advisory {
+    display: none;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    border-radius: 10px;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    background: rgba(255, 59, 48, 0.22);
+    border-color: rgba(255, 59, 48, 0.6);
+  }
+  .bathing-advisory.visible { display: block; }
+  .bathing-temp {
+    font-size: clamp(1.4rem, 5vw, 2.2rem);
+    font-weight: 700;
+  }
+  .bathing-reports {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .bathing-report-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .bathing-status-badge {
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 8px;
+  }
+  .bathing-status-badge.ok { background: rgba(124, 252, 147, 0.2); color: #7CFC93; }
+  .bathing-status-badge.warn { background: rgba(255, 209, 102, 0.2); color: var(--accent); }
+  .bathing-status-badge.bad { background: rgba(255, 59, 48, 0.22); color: #ff8a80; }
+  .bathing-eu {
+    font-size: 0.72rem;
+    color: var(--muted);
   }
   .card-title {
     display: flex;
@@ -301,12 +356,20 @@
       <div class="weather-desc" id="weatherDesc">Hämtar väder…</div>
       <div class="forecast-row" id="forecastRow"></div>
     </div>
-    <div class="card clock-card" id="clockCard"></div>
+    <div class="card clock-card" id="clockCard">
+      <div class="bathing-title">🏖️ Sickla strandbad</div>
+      <div class="bathing-middle">
+        <div class="bathing-advisory" id="bathingAdvisory"></div>
+        <div class="bathing-temp" id="bathingTemp">–°</div>
+        <div class="bathing-reports" id="bathingReports">Hämtar badvattendata…</div>
+      </div>
+      <div class="bathing-eu" id="bathingEu"></div>
+    </div>
   </div>
 
   <div class="card">
     <div class="card-title">
-      🚌 Nästa buss/tåg,
+      🚌🚆 Nästa buss/tåg,
       <select class="stop-select" id="stopSelect"></select>
     </div>
     <ul class="bus-list" id="busList">
@@ -314,7 +377,7 @@
     </ul>
   </div>
 
-  <div class="footer-note">Väder: SMHI Open Data · Bussar: SL Transport API (trafiklab.se)</div>
+  <div class="footer-note">Väder: SMHI Open Data · Bussar: SL Transport API (trafiklab.se) · Badvatten: Havs- och vattenmyndigheten</div>
 </div>
 
 <script>
@@ -537,6 +600,61 @@ function renderForecastRow(series, hours) {
 }
 loadWeather();
 setInterval(loadWeather, 30 * 60 * 1000); // SMHI räknar om prognosen ca var 4:e timme, 30 min räcker gott
+
+// ---------- Badvatten, Sickla strandbad (Havs- och vattenmyndigheten) ----------
+const BATHING_WATER_ID = 'SE0110182000001238';
+
+function bathingStatusClass(sampleAssessId) {
+  if (sampleAssessId === 1) return 'ok';
+  if (sampleAssessId === 3) return 'bad';
+  return 'warn';
+}
+
+async function loadBathingWater() {
+  const advisoryBox = document.getElementById('bathingAdvisory');
+  const tempEl = document.getElementById('bathingTemp');
+  const reportsEl = document.getElementById('bathingReports');
+  const euEl = document.getElementById('bathingEu');
+  try {
+    const data = await fetchJSON(`https://gw.havochvatten.se/external-public/bathing-waters/v2/bathing-waters/${BATHING_WATER_ID}`);
+
+    // Aktiva badförbud/varningar väger tyngst och visas alltid överst
+    const advisories = [...(data.adviceAgainstBathing || []), ...(data.abnormalSituations || [])];
+    if (advisories.length > 0) {
+      advisoryBox.className = 'bathing-advisory visible';
+      advisoryBox.innerHTML = advisories.map(a => `⚠ ${a.description || a.typeIdText || 'Badförbud/varning'}`).join('<br>');
+    } else {
+      advisoryBox.className = 'bathing-advisory';
+      advisoryBox.innerHTML = '';
+    }
+
+    const results = data.results || [];
+    const latest = results[0];
+    tempEl.textContent = latest ? `${latest.waterTemp}°` : '–°';
+
+    if (results.length > 0) {
+      reportsEl.innerHTML = results.slice(0, 2).map(r => {
+        const dateStr = new Date(r.takenAt).toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' });
+        return `
+          <div class="bathing-report-row">
+            <span class="bathing-status-badge ${bathingStatusClass(r.sampleAssessId)}">${r.sampleAssessIdText}</span>
+            <span>${dateStr}</span>
+          </div>`;
+      }).join('');
+    } else {
+      reportsEl.textContent = 'Inga provresultat tillgängliga';
+    }
+
+    const classifications = (data.profile && data.profile.lastFourClassifications) || [];
+    euEl.textContent = classifications.length > 0
+      ? `EU-klass ${classifications[0].year}: ${classifications[0].qualityClassIdText}`
+      : '';
+  } catch (e) {
+    reportsEl.textContent = `Kunde inte hämta badvattendata (${e.message})`;
+  }
+}
+loadBathingWater();
+setInterval(loadBathingWater, 30 * 60 * 1000); // provresultat och klassificering ändras sällan
 
 // ---------- Robust fetch: försök direkt, falla tillbaka på CORS-proxy ----------
 // Om sidan öppnas som en lokal fil (file://) skickar webbläsaren "Origin: null",
