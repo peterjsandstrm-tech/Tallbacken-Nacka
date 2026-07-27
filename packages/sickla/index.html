@@ -247,6 +247,13 @@
   .warning-text .w-title {
     font-weight: 700;
   }
+  .warning-text .w-desc {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
   .warning-banner.level-yellow { background: rgba(255, 209, 102, 0.18); border-color: rgba(255, 209, 102, 0.5); }
   .warning-banner.level-orange { background: rgba(255, 149, 0, 0.2); border-color: rgba(255, 149, 0, 0.55); }
   .warning-banner.level-red { background: rgba(255, 59, 48, 0.22); border-color: rgba(255, 59, 48, 0.6); }
@@ -294,9 +301,43 @@
 </div>
 
 <script>
+// ---------- Koordinater för Sickla, Nacka ----------
+const SICKLA_LAT = 59.31;
+const SICKLA_LON = 18.16;
+
 // ---------- Väder- och samhällsvarningar (SMHI Impact Based Weather Warnings) ----------
-// Stockholms län har id 1 i SMHI:s länsindelning (SWE_COUNTIES)
-const STOCKHOLM_COUNTY_ID = 1;
+// Punkt-i-polygon (ray casting) mot varningsområdets GeoJSON-geometri, så bara
+// varningar som faktiskt täcker Sicklas koordinat visas (inte hela länet).
+function rayCastRing(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInPolygonCoords(lon, lat, rings) {
+  if (!rayCastRing(lon, lat, rings[0])) return false;
+  for (let k = 1; k < rings.length; k++) {
+    if (rayCastRing(lon, lat, rings[k])) return false; // ligger i ett hål
+  }
+  return true;
+}
+
+function pointInGeometry(lon, lat, geometry) {
+  if (!geometry) return false;
+  if (geometry.type === 'Polygon') {
+    return pointInPolygonCoords(lon, lat, geometry.coordinates);
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.some(poly => pointInPolygonCoords(lon, lat, poly));
+  }
+  return false;
+}
 
 const warningLevelInfo = {
   YELLOW: { cssClass: 'level-yellow', icon: '⚠️' },
@@ -314,18 +355,24 @@ async function loadWarnings() {
 
     for (const warning of data) {
       for (const area of (warning.warningAreas || [])) {
-        const affectsStockholm = (area.affectedAreas || []).some(a => a.id === STOCKHOLM_COUNTY_ID);
-        if (!affectsStockholm) continue;
+        const affectsSickla = pointInGeometry(SICKLA_LON, SICKLA_LAT, area.area && area.area.geometry);
+        if (!affectsSickla) continue;
 
         // Hoppa över varningar vars sluttid redan passerat
         if (area.approximateEnd && new Date(area.approximateEnd).getTime() < now) continue;
 
+        // Hoppa även över varningar som ännu inte har trätt i kraft
+        // (SMHI publicerar ofta morgondagens varning redan idag)
+        if (area.approximateStart && new Date(area.approximateStart).getTime() > now) continue;
+
         const levelCode = (area.warningLevel && area.warningLevel.code) || 'MESSAGE';
+        const incidentDescription = (area.descriptions || []).find(d => d.title && d.title.code === 'INCIDENT');
         items.push({
           title: (warning.event && warning.event.sv) || (area.eventDescription && area.eventDescription.sv) || 'Varning',
           levelText: (area.warningLevel && area.warningLevel.sv) || '',
           levelCode,
-          areaName: (area.areaName && area.areaName.sv) || ''
+          areaName: (area.areaName && area.areaName.sv) || '',
+          descriptionText: (incidentDescription && incidentDescription.text && incidentDescription.text.sv) || ''
         });
       }
     }
@@ -346,11 +393,15 @@ async function loadWarnings() {
     banner.className = `warning-banner visible ${levelClass}`;
     banner.innerHTML = items.map(item => {
       const info = warningLevelInfo[item.levelCode] || warningLevelInfo.MESSAGE;
+      const descHtml = item.descriptionText
+        ? `<span class="w-desc">${item.descriptionText}</span>`
+        : '';
       return `
         <div class="warning-item">
           <span class="warning-icon">${info.icon}</span>
           <div class="warning-text">
             <div class="w-title">${item.title}</div>
+            ${descHtml}
           </div>
         </div>`;
     }).join('');
@@ -375,10 +426,6 @@ updateClock();
 setInterval(updateClock, 1000);
 
 // ---------- Väder (SMHI Open Data, SNOW1gv1-API, ingen nyckel behövs) ----------
-// Koordinater för Nacka
-const NACKA_LAT = 59.31;
-const NACKA_LON = 18.16;
-
 // SMHI:s väder-symbolkoder (1-27), samma kodning som tidigare Wsymb2
 const smhiSymbolText = {
   1: "Klart", 2: "Lätt molnighet", 3: "Halvklart", 4: "Molnigt",
@@ -409,7 +456,7 @@ const smhiSymbolIcon = {
 async function loadWeather() {
   try {
     // Hämtar upp till ca 2 dygn framåt så vi kan plocka ut kl 09/13/17/21
-    const url = `https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/${NACKA_LON}/lat/${NACKA_LAT}/data.json?parameters=air_temperature,wind_speed,symbol_code&timeseries=48`;
+    const url = `https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/${SICKLA_LON}/lat/${SICKLA_LAT}/data.json?parameters=air_temperature,wind_speed,symbol_code&timeseries=48`;
     const data = await fetchJSON(url);
     const series = data.timeSeries;
 
