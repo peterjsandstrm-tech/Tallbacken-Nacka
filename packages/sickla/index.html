@@ -110,6 +110,20 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+  .stop-select {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0;
+  }
+  .stop-select option {
+    color: #1e2a44;
+    text-transform: none;
+    letter-spacing: normal;
+  }
   .temp-row {
     display: flex;
     align-items: center;
@@ -291,7 +305,10 @@
   </div>
 
   <div class="card">
-    <div class="card-title">🚌 Nästa buss, Tallbacken</div>
+    <div class="card-title">
+      🚌 Nästa buss/tåg,
+      <select class="stop-select" id="stopSelect"></select>
+    </div>
     <ul class="bus-list" id="busList">
       <li class="status-msg">Hämtar avgångar…</li>
     </ul>
@@ -541,19 +558,37 @@ async function fetchJSON(url) {
   }
 }
 
-// ---------- Bussar (SL Transport API) ----------
-let tallbackenSiteId = null;
+// ---------- Hållplatser (SL Transport API) ----------
+// Fasta site-id:n för hållplatserna kring Sickla/Nacka, slagna upp mot
+// https://transport.integration.sl.se/v1/sites?expand=true
+const STOPS = [
+  { id: 4630, name: 'Nackanäs (Nacka)' },
+  { id: 4631, name: 'Nysätravägen (Nacka)' },
+  { id: 4044, name: 'Planiavägen (Nacka)' },
+  { id: 4638, name: 'Sickla Köpkvarter (Nacka)' },
+  { id: 4632, name: 'Tallbacken (Nacka)' },
+  { id: 4633, name: 'Sickla Strand (Nacka)' },
+  { id: 9430, name: 'Nacka (Nacka)' },
+  { id: 9431, name: 'Sickla (Nacka)' },
+  { id: 4049, name: 'Sickla bro (Nacka)' },
+  { id: 4634, name: 'Sickla allé (Nacka)' },
+  { id: 9820, name: 'Sickla udde (Stockholm)' },
+  { id: 1550, name: 'Sickla kaj (Stockholm)' },
+  { id: 1552, name: 'Luma (Stockholm)' },
+  { id: 1555, name: 'Mårtensdal (Stockholm)' }
+].sort((a, b) => a.name.localeCompare(b.name, 'sv'));
 
-async function findTallbackenSiteId() {
-  const sites = await fetchJSON('https://transport.integration.sl.se/v1/sites?expand=true');
-  // Leta upp en site som heter "Tallbacken (Nacka)" och helst har en anteckning om Nacka,
-  // annars första träffen.
-  const matches = sites.filter(s => s.abbreviation  === 'TABA');
-  if (matches.length === 0) {
-    throw new Error('Hittade ingen hållplats som heter Tallbacken (Nacka)');
-  }
-  const nackaMatch = matches.find(s => (s.note || '').toLowerCase().includes('nacka'));
-  return (nackaMatch || matches[0]).id;
+const DEFAULT_STOP_ID = 4632; // Tallbacken (Nacka)
+let selectedStopId = DEFAULT_STOP_ID;
+
+function populateStopSelect() {
+  const select = document.getElementById('stopSelect');
+  select.innerHTML = STOPS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  select.value = String(selectedStopId);
+  select.addEventListener('change', () => {
+    selectedStopId = Number(select.value);
+    loadBuses();
+  });
 }
 
 // SL:s API kan leverera "deviations" som en sträng, ett objekt eller en lista
@@ -590,20 +625,19 @@ function formatDeparture(dep) {
   return { text: `${diffMin} min`, now: false, past: false };
 }
 
+const DEPARTURE_MODES = ['BUS', 'TRAM', 'TRAIN', 'METRO'];
+
 async function loadBuses() {
   const list = document.getElementById('busList');
   try {
-    if (!tallbackenSiteId) {
-      tallbackenSiteId = await findTallbackenSiteId();
-    }
-    const data = await fetchJSON(`https://transport.integration.sl.se/v1/sites/${tallbackenSiteId}/departures`);
+    const data = await fetchJSON(`https://transport.integration.sl.se/v1/sites/${selectedStopId}/departures`);
 
     const now = new Date();
     const windowStartMs = now.getTime() - 10 * 60 * 1000;  // 10 min tillbaka
     const windowEndMs = now.getTime() + 60 * 60 * 1000;    // 60 min framåt
 
     const buses = (data.departures || [])
-      .filter(d => d.line && d.line.transport_mode === 'BUS')
+      .filter(d => d.line && DEPARTURE_MODES.includes(d.line.transport_mode))
       .filter(d => {
         const t = new Date(d.expected).getTime();
         return t >= windowStartMs && t <= windowEndMs;
@@ -648,6 +682,7 @@ async function loadBuses() {
     list.innerHTML = `<li class="status-msg">Kunde inte hämta bussavgångar (${e.message}).</li>`;
   }
 }
+populateStopSelect();
 loadBuses();
 setInterval(loadBuses, 30 * 1000); // uppdatera var 30:e sekund
 </script>
