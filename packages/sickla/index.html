@@ -60,6 +60,24 @@
     color: var(--muted);
     margin: 0 0 4px 0;
   }
+  .datetime-card {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 22px;
+  }
+  .clock-date {
+    color: var(--text);
+    font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+    text-transform: capitalize;
+  }
+  .clock-time {
+    color: var(--text);
+    font-weight: 700;
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+    font-variant-numeric: tabular-nums;
+  }
   .top-row {
     display: flex;
     align-items: stretch;
@@ -81,18 +99,6 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-  }
-  .clock {
-    font-size: clamp(1.8rem, 8vw, 4rem);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    font-variant-numeric: tabular-nums;
-  }
-  .date {
-    margin-top: 6px;
-    color: var(--muted);
-    font-size: 0.95rem;
-    text-transform: capitalize;
   }
   .card-title {
     display: flex;
@@ -258,6 +264,11 @@
 <div class="wrap">
   <h1>Sickla · Nacka</h1>
 
+  <div class="card datetime-card">
+    <span class="clock-date" id="clockDate">—</span>
+    <span class="clock-time" id="clockTime">--:--:--</span>
+  </div>
+
   <div class="warning-banner" id="warningBanner"></div>
 
   <div class="top-row">
@@ -269,10 +280,7 @@
       <div class="weather-desc" id="weatherDesc">Hämtar väder…</div>
       <div class="forecast-row" id="forecastRow"></div>
     </div>
-    <div class="card clock-card">
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="date" id="dateLine">—</div>
-    </div>
+    <div class="card clock-card" id="clockCard"></div>
   </div>
 
   <div class="card">
@@ -360,8 +368,8 @@ function updateClock() {
   const now = new Date();
   const time = now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const date = now.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' });
-  document.getElementById('clock').textContent = time;
-  document.getElementById('dateLine').textContent = date;
+  document.getElementById('clockDate').textContent = date;
+  document.getElementById('clockTime').textContent = time;
 }
 updateClock();
 setInterval(updateClock, 1000);
