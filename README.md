@@ -1,1 +1,7 @@
-# Tallbacken-Nacka
+# kiosk
+
+Monorepo for wall-mounted kiosk info-board pages. Each location lives under `packages/<name>/`.
+
+## Packages
+
+- [`packages/sickla`](packages/sickla/) — Sickla stop info board (date/time, weather, weather warnings, next departures)
